@@ -95,7 +95,7 @@ const { data: receipt, error: receiptError } = await supabase
   .single()
 
 if (!receiptError && receipt) {
-  setQrData(`https://pos-final-five.vercel.app/receipt?id=${receipt.receipt_id}`)
+  setQrData(`https://benevolent-praline-d7c090.netlify.app/receipt?id=${receipt.receipt_id}`)
   setTransRef(ref)
 }
 
