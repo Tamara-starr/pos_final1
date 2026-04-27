@@ -10,6 +10,7 @@ import { PaymentModal } from '@/components/pos/payment-modal'
 import { AIAssistant } from '@/components/pos/ai-assistant'
 import { useAuth } from '@/lib/auth-context'
 import type { CartItem, Product, ProductCategory } from '@/lib/types'
+import { toast } from 'sonner'
 
 export default function POSDashboard() {
   const { user } = useAuth()
@@ -46,6 +47,50 @@ export default function POSDashboard() {
   }
 
   useEffect(() => { loadProducts() }, [])
+           // Barcode scanner listener
+useEffect(() => {
+  let barcodeBuffer = ''
+  let lastKeyTime = Date.now()
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const now = Date.now()
+
+    // If more than 100ms between keystrokes it is a human typing not a scanner
+    if (now - lastKeyTime > 100) {
+      barcodeBuffer = ''
+    }
+
+    lastKeyTime = now
+
+    if (e.key === 'Enter') {
+      // Scanner has finished — search for the product
+      if (barcodeBuffer.length > 2) {
+        const found = products.find(
+          (p) => p.barcode === barcodeBuffer
+        )
+        if (found) {
+          addToCart(found)
+          setSearchQuery('')
+          // Show success feedback
+          toast.success(`Added: ${found.name}`, {
+            description: `NGN ${found.price.toLocaleString()} · Stock: ${found.stock - 1}`
+          })
+        } else {
+          toast.error(`Barcode not found: ${barcodeBuffer}`, {
+            description: 'Check if this product is in the inventory'
+          })
+        }
+      }
+      barcodeBuffer = ''
+    } else if (e.key.length === 1) {
+      // Only add printable characters to buffer
+      barcodeBuffer += e.key
+    }
+  }
+
+  window.addEventListener('keydown', handleKeyDown)
+  return () => window.removeEventListener('keydown', handleKeyDown)
+}, [products])
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
