@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ProductGrid } from '@/components/pos/product-grid'
 import { Cart } from '@/components/pos/cart'
@@ -11,6 +11,7 @@ import { AIAssistant } from '@/components/pos/ai-assistant'
 import { useAuth } from '@/lib/auth-context'
 import type { CartItem, Product, ProductCategory } from '@/lib/types'
 import { toast } from 'sonner'
+
 
 export default function POSDashboard() {
   const { user } = useAuth()
@@ -48,49 +49,70 @@ export default function POSDashboard() {
 
   useEffect(() => { loadProducts() }, [])
            // Barcode scanner listener
-useEffect(() => {
-  let barcodeBuffer = ''
-  let lastKeyTime = Date.now()
+const addToCart = useCallback((product: Product) => {
+  if (product.stock <= 0) return
+  setCart((prev) => {
+    const existing = prev.find((item) => item.product.id === product.id)
+    if (existing) return prev.map((item) =>
+      item.product.id === product.id
+        ? { ...item, quantity: item.quantity + 1 }
+        : item
+    )
+    return [...prev, { product, quantity: 1 }]
+  })
+}, [])
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    const now = Date.now()
+   useEffect(() => {
+    let barcodeBuffer = ''
+    let lastKeyTime = Date.now()
 
-    // If more than 100ms between keystrokes it is a human typing not a scanner
-    if (now - lastKeyTime > 100) {
+     const handleKeyDown = (e: KeyboardEvent) => {
+      const now = Date.now()
+      const activeElement = document.activeElement
+      const isTypingInInput = 
+      activeElement instanceof HTMLInputElement ||
+      activeElement instanceof HTMLTextAreaElement
+
+    // Reset buffer if too slow between keystrokes
+      if (now - lastKeyTime > 100) {
       barcodeBuffer = ''
-    }
+     }
 
-    lastKeyTime = now
+      lastKeyTime = now
 
     if (e.key === 'Enter') {
-      // Scanner has finished — search for the product
       if (barcodeBuffer.length > 2) {
+        // Search by barcode in loaded products
         const found = products.find(
-          (p) => p.barcode === barcodeBuffer
+          (p) => p.barcode?.toLowerCase() === barcodeBuffer.toLowerCase()
         )
+
         if (found) {
           addToCart(found)
           setSearchQuery('')
-          // Show success feedback
-          toast.success(`Added: ${found.name}`, {
-            description: `NGN ${found.price.toLocaleString()} · Stock: ${found.stock - 1}`
+          // Clear the search input if it was focused
+          if (isTypingInInput) {
+            const input = activeElement as HTMLInputElement
+            input.value = ''
+          }
+          toast.success(`Added to cart: ${found.name}`, {
+            description: `NGN ${found.price.toLocaleString()}`
           })
-        } else {
-          toast.error(`Barcode not found: ${barcodeBuffer}`, {
-            description: 'Check if this product is in the inventory'
+          } else {
+          toast.error(`Product not found`, {
+            description: `No product with barcode: ${barcodeBuffer}`
           })
+         }
         }
-      }
-      barcodeBuffer = ''
-    } else if (e.key.length === 1) {
-      // Only add printable characters to buffer
-      barcodeBuffer += e.key
-    }
-  }
+         barcodeBuffer = ''
+       } else if (e.key.length === 1) {
+        barcodeBuffer += e.key
+       }
+     }
 
-  window.addEventListener('keydown', handleKeyDown)
-  return () => window.removeEventListener('keydown', handleKeyDown)
-}, [products])
+      window.addEventListener('keydown', handleKeyDown)
+      return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [products, addToCart])
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -102,15 +124,7 @@ useEffect(() => {
     })
   }, [products, searchQuery, selectedCategory])
 
-  const addToCart = (product: Product) => {
-    if (product.stock <= 0) return
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id)
-      if (existing) return prev.map((item) => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
-      return [...prev, { product, quantity: 1 }]
-    })
-  }
-
+ 
   const updateQuantity = (productId: string, quantity: number) => {
     if (quantity <= 0) { removeFromCart(productId); return }
     setCart((prev) => prev.map((item) => item.product.id === productId ? { ...item, quantity } : item))
