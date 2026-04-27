@@ -108,10 +108,14 @@ const addToCart = useCallback((product: Product) => {
        } else if (e.key.length === 1) {
         barcodeBuffer += e.key
        }
+       if (e.key === 'Enter') {
+         console.log('Barcode scanned:', barcodeBuffer)
      }
 
       window.addEventListener('keydown', handleKeyDown)
       return () => window.removeEventListener('keydown', handleKeyDown)
+
+      
     }, [products, addToCart])
 
   const filteredProducts = useMemo(() => {
