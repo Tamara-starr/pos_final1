@@ -86,7 +86,7 @@ export default function POSDashboard() {
         activeElement instanceof HTMLInputElement ||
         activeElement instanceof HTMLTextAreaElement
 
-      if (now - lastKeyTime > 100) {
+      if (now - lastKeyTime > 500) {
         barcodeBuffer = ''
       }
 
@@ -117,6 +117,7 @@ export default function POSDashboard() {
         barcodeBuffer = ''
       } else if (e.key.length === 1) {
         barcodeBuffer += e.key
+        console.log('Buffer now:', barcodeBuffer)
       }
     }
 
