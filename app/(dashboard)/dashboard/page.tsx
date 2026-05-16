@@ -10,7 +10,7 @@ import { PaymentModal } from '@/components/pos/payment-modal'
 import { AIAssistant } from '@/components/pos/ai-assistant'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
-import type { CartItem, Product, ProductCategory } from '@/lib/types'
+import type { CartItem, Product} from '@/lib/types'
 
 export default function POSDashboard() {
   const { user } = useAuth()
@@ -18,15 +18,25 @@ export default function POSDashboard() {
   const [loading, setLoading] = useState(true)
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'All'>('All')
+  const [selectedCategory, setSelectedCategory] = useState<string>('All')
+  const [categories, setCategories] = useState<{ category_id: number; name: string }[]>([])
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
 
   // ── Load products ─────────────────────────────────────────────────
+  async function loadCategories() {
+    const { data } = await supabase
+      .from('categories')
+      .select('category_id, name')
+      .eq('is_active', true)
+      .order('name')
+    if (data) setCategories(data)
+  }
+
   async function loadProducts() {
     setLoading(true)
     const { data, error } = await supabase
       .from('products')
-      .select('prod_id, name, price, stock_qty, barcode, category_id')
+      .select('prod_id, name, price, stock_qty, barcode, category_id, categories(name)')
       .order('name')
 
     if (error) {
@@ -40,7 +50,7 @@ export default function POSDashboard() {
       name: row.name,
       description: '',
       price: row.price,
-      category: 'Other' as ProductCategory,
+      category: row.categories?.name ?? 'Other',
       stock: row.stock_qty,
       barcode: row.barcode ?? undefined,
       createdAt: new Date(),
@@ -51,7 +61,10 @@ export default function POSDashboard() {
     setLoading(false)
   }
 
-  useEffect(() => { loadProducts() }, [])
+  useEffect(() => {
+    loadCategories()
+    loadProducts()
+  }, [])
 
   // ── Cart actions ──────────────────────────────────────────────────
   const addToCart = useCallback((product: Product) => {
@@ -218,6 +231,7 @@ export default function POSDashboard() {
           <CategoryFilter
             selected={selectedCategory}
             onSelect={setSelectedCategory}
+            categories={categories}
           />
         </div>
         <div className="flex-1 overflow-y-auto">

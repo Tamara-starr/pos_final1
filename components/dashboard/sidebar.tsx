@@ -16,12 +16,14 @@ import {
   Settings,
   Menu,
   X,
+  ShoppingBag,
 } from 'lucide-react'
 
 const navigation = [
   { name: 'POS', href: '/dashboard', icon: ShoppingCart },
   { name: 'Inventory', href: '/dashboard/inventory', icon: Package },
   { name: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
+  { name: 'Purchases', href: '/dashboard/purchases', icon: ShoppingBag },
   { name: 'Admin', href: '/dashboard/admin', icon: Settings },
 ]
 

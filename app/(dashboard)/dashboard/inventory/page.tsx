@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { PRODUCT_CATEGORIES, type Product, type ProductCategory } from '@/lib/types'
+import { type Product } from '@/lib/types'
 import { ProductTable } from '@/components/inventory/product-table'
 import { ProductForm } from '@/components/inventory/product-form'
 import { SearchBar } from '@/components/pos/search-bar'
@@ -14,21 +14,38 @@ import { Plus, Package, AlertTriangle, TrendingUp, Filter, Sparkles, X } from 'l
 import { Spinner } from '@/components/ui/spinner'
 import { toast } from 'sonner'
 
+interface Category {
+  category_id: number
+  name: string
+}
+
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'All'>('All')
+  const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [aiAlert, setAiAlert] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
 
+  // Load categories from Supabase
+  async function loadCategories() {
+    const { data } = await supabase
+      .from('categories')
+      .select('category_id, name')
+      .eq('is_active', true)
+      .order('name')
+    if (data) setCategories(data)
+  }
+
+  // Load products and join with categories
   async function loadProducts() {
     setLoading(true)
     const { data, error } = await supabase
       .from('products')
-      .select('prod_id, name, price, stock_qty, barcode, reorder_lvl, category_id')
+      .select('prod_id, name, price, stock_qty, barcode, reorder_lvl, category_id, categories(name)')
       .order('name')
 
     if (error) { toast.error('Failed to load products'); setLoading(false); return }
@@ -38,7 +55,7 @@ export default function InventoryPage() {
       name: row.name,
       description: '',
       price: row.price,
-      category: 'Other',
+      category: row.categories?.name ?? 'Other',
       stock: row.stock_qty,
       barcode: row.barcode ?? undefined,
       createdAt: new Date(),
@@ -49,11 +66,16 @@ export default function InventoryPage() {
     setLoading(false)
   }
 
-  useEffect(() => { loadProducts() }, [])
+  useEffect(() => {
+    loadCategories()
+    loadProducts()
+  }, [])
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
-      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || product.barcode?.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesSearch =
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.barcode?.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory
       return matchesSearch && matchesCategory
     })
@@ -69,7 +91,13 @@ export default function InventoryPage() {
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(price)
 
-  // Step 9 — AI Low Stock Alert
+  // Helper — convert category name to category_id
+  const getCategoryId = (categoryName: string): number => {
+    const found = categories.find((c) => c.name === categoryName)
+    return found ? found.category_id : 1
+  }
+
+  // AI Low Stock Alert
   const generateAIStockAlert = async () => {
     setAiLoading(true)
     setAiAlert('')
@@ -94,29 +122,19 @@ For each item mention the current stock level, how urgent the restock is,
 and a suggested reorder quantity based on typical resort mart demand.
 Rank them from most critical to least critical.`
 
-      
-const response = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`,
-  {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`,
         {
-          role: 'user',
-          parts: [{ text: prompt }]
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+          })
         }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1000
-      }
-    })
-  }
-)
-const data = await response.json()
-console.log('Gemini response:', data)
-const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to generate summary at this time.'
+      )
+      const data = await response.json()
+      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to generate summary at this time.'
       setAiAlert(reply)
     } catch {
       setAiAlert('Unable to connect to AI. Please check your Gemini API key.')
@@ -125,10 +143,11 @@ const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to gen
     setAiLoading(false)
   }
 
+  // Add product — uses real category_id
   const handleAddProduct = async (data: Partial<Product>) => {
     const { error } = await supabase.from('products').insert({
       name: data.name,
-      category_id: 1,
+      category_id: getCategoryId(data.category ?? 'Other'),
       price: data.price,
       stock_qty: data.stock ?? 0,
       barcode: data.barcode ?? null,
@@ -140,11 +159,18 @@ const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to gen
     loadProducts()
   }
 
+  // Edit product — now also saves category_id
   const handleEditProduct = async (data: Partial<Product>) => {
     if (!editingProduct) return
     const { error } = await supabase
       .from('products')
-      .update({ name: data.name, price: data.price, stock_qty: data.stock, barcode: data.barcode ?? null })
+      .update({
+        name: data.name,
+        category_id: getCategoryId(data.category ?? 'Other'),
+        price: data.price,
+        stock_qty: data.stock,
+        barcode: data.barcode ?? null,
+      })
       .eq('prod_id', Number(editingProduct.id))
     if (error) { toast.error('Failed to update: ' + error.message); return }
     toast.success('Product updated')
@@ -177,7 +203,7 @@ const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to gen
         </div>
       </div>
 
-      {/* AI Stock Alert Banner — Step 9 */}
+      {/* AI Stock Alert Banner */}
       {aiAlert && (
         <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
           <CardHeader className="pb-2">
@@ -200,16 +226,19 @@ const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to gen
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-destructive" />Out of Stock</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-destructive">{stats.outOfStockCount}</p></CardContent></Card>
       </div>
 
+      {/* Search and category filter */}
       <div className="flex flex-col sm:flex-row gap-3">
         <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search products by name or barcode..." />
-        <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as ProductCategory | 'All')}>
+        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
           <SelectTrigger className="w-full sm:w-[180px] h-11">
             <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Categories</SelectItem>
-            {PRODUCT_CATEGORIES.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+            {categories.map((cat) => (
+              <SelectItem key={cat.category_id} value={cat.name}>{cat.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -217,7 +246,11 @@ const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to gen
       {loading ? (
         <div className="flex items-center justify-center h-40 text-muted-foreground">Loading inventory...</div>
       ) : (
-        <ProductTable products={filteredProducts} onEdit={(p) => { setEditingProduct(p); setIsFormOpen(true) }} onDelete={handleDeleteProduct} />
+        <ProductTable
+          products={filteredProducts}
+          onEdit={(p) => { setEditingProduct(p); setIsFormOpen(true) }}
+          onDelete={handleDeleteProduct}
+        />
       )}
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
