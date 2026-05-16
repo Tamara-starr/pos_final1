@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Settings, Users, Store, Shield, Printer, Receipt, Bell, Lock } from 'lucide-react'
 import { toast } from 'sonner'
+import ShiftReconciliation from '@/components/ShiftReconciliation'
 
 export default function AdminPage() {
   const { user } = useAuth()
@@ -73,9 +74,10 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="users" className="flex items-center gap-2"><Users className="w-4 h-4" />Users</TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2"><Settings className="w-4 h-4" />Settings</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
+         <TabsTrigger value="users" className="flex items-center gap-2"><Users className="w-4 h-4" />Users</TabsTrigger>
+         <TabsTrigger value="settings" className="flex items-center gap-2"><Settings className="w-4 h-4" />Settings</TabsTrigger>
+         <TabsTrigger value="reconciliation" className="flex items-center gap-2"><Receipt className="w-4 h-4" />Reconciliation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="space-y-6">
@@ -173,6 +175,9 @@ export default function AdminPage() {
           <div className="flex justify-end">
             <Button onClick={() => toast.success('Settings saved successfully')} className="px-8">Save Changes</Button>
           </div>
+        </TabsContent>
+         <TabsContent value="reconciliation">
+          <ShiftReconciliation />
         </TabsContent>
       </Tabs>
     </div>
