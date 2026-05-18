@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { DollarSign, ShoppingCart, TrendingUp, Package, Sparkles } from 'lucide-react'
+import { DollarSign, ShoppingCart, TrendingUp, Package, Sparkles, Download, FileSpreadsheet } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { Spinner } from '@/components/ui/spinner'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -168,8 +169,7 @@ payment method breakdown, and give two specific actionable recommendations
 for improving sales at the resort mart.`
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`,
-        {
+       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`,        {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -219,25 +219,123 @@ for improving sales at the resort mart.`
     }
     return null
   }
+// ── Export to PDF ─────────────────────────────────────────────────
+  const handleExportPDF = () => {
+    window.print()
+  }
+
+  // ── Export to Excel ───────────────────────────────────────────────
+  const handleExportExcel = () => {
+    const wb = XLSX.utils.book_new()
+
+    // Sheet 1 — Summary
+    const summaryData = [
+      ['Resort Shopping Mart — Sales Report'],
+      ['Period', dateRange === '7d' ? 'Last 7 days' : dateRange === '30d' ? 'Last 30 days' : 'Last 90 days'],
+      ['Generated', new Date().toLocaleString('en-NG')],
+      [],
+      ['SUMMARY'],
+      ['Total Revenue', stats.totalSales],
+      ['Total Transactions', stats.totalTransactions],
+      ['Average Order Value', stats.avgOrderValue],
+    ]
+    if (aiSummary) {
+      summaryData.push([])
+      summaryData.push(['AI SALES SUMMARY'])
+      summaryData.push([aiSummary])
+    }
+    const ws1 = XLSX.utils.aoa_to_sheet(summaryData)
+    ws1['!cols'] = [{ wch: 30 }, { wch: 50 }]
+    XLSX.utils.book_append_sheet(wb, ws1, 'Summary')
+
+    // Sheet 2 — Daily Revenue
+    const revenueRows = [
+      ['Date', 'Revenue (NGN)'],
+      ...dailySales.map(d => [d.day, d.revenue])
+    ]
+    const ws2 = XLSX.utils.aoa_to_sheet(revenueRows)
+    ws2['!cols'] = [{ wch: 20 }, { wch: 20 }]
+    XLSX.utils.book_append_sheet(wb, ws2, 'Daily Revenue')
+
+    // Sheet 3 — Top Products
+    const productRows = [
+      ['Rank', 'Product Name', 'Units Sold', 'Revenue (NGN)'],
+      ...topProducts.map((p, i) => [i + 1, p.name, p.sold, p.revenue])
+    ]
+    const ws3 = XLSX.utils.aoa_to_sheet(productRows)
+    ws3['!cols'] = [{ wch: 8 }, { wch: 30 }, { wch: 15 }, { wch: 20 }]
+    XLSX.utils.book_append_sheet(wb, ws3, 'Top Products')
+
+    // Sheet 4 — Payment Methods
+    const paymentRows = [
+      ['Payment Method', 'Transactions'],
+      ...paymentBreakdown.map(p => [p.name, p.value])
+    ]
+    const ws4 = XLSX.utils.aoa_to_sheet(paymentRows)
+    ws4['!cols'] = [{ wch: 20 }, { wch: 15 }]
+    XLSX.utils.book_append_sheet(wb, ws4, 'Payment Methods')
+
+    // Sheet 5 — Recent Transactions
+    const txnRows = [
+      ['Transaction ID', 'Cashier', 'Total (NGN)', 'Payment Method', 'Date'],
+      ...transactions.map(t => [
+        `TRN-${t.trans_id}`,
+        `${t.users?.first_name || ''} ${t.users?.last_name || ''}`.trim(),
+        t.total,
+        t.pay_method,
+        new Date(t.created_at).toLocaleString('en-NG')
+      ])
+    ]
+    const ws5 = XLSX.utils.aoa_to_sheet(txnRows)
+    ws5['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 25 }]
+    XLSX.utils.book_append_sheet(wb, ws5, 'Transactions')
+
+    // Download
+    const fileName = `ResortMart_Report_${dateRange}_${new Date().toISOString().split('T')[0]}.xlsx`
+    XLSX.writeFile(wb, fileName)
+  }
 
   return (
     <div className="space-y-6">
+      
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          aside { display: none !important; }
+          header { display: none !important; }
+          nav { display: none !important; }
+          [data-sidebar] { display: none !important; }
+          body { background: white !important; }
+          .space-y-6 { padding: 0 !important; }
+          button { display: none !important; }
+        }
+      `}</style>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Reports & Analytics</h1>
           <p className="text-muted-foreground">Live sales data from your database</p>
         </div>
-        <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7d">Last 7 days</SelectItem>
-            <SelectItem value="30d">Last 30 days</SelectItem>
-            <SelectItem value="90d">Last 90 days</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={handleExportExcel} disabled={loading}>
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Export Excel
+          </Button>
+          <Button variant="outline" onClick={handleExportPDF} disabled={loading}>
+            <Download className="w-4 h-4 mr-2" />
+            Export PDF
+          </Button>
+        </div>
       </div>
 
       {loading ? (
