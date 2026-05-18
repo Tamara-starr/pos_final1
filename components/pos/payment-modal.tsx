@@ -140,13 +140,31 @@ const handleClose = () => {
             <div className="space-y-3">
               <p className="text-sm font-medium">Guest Receipt Options</p>
 
+             <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => {
+                  if (qrData) {
+                    const id = qrData.split('id=')[1]
+                    window.open(
+                      `/receipt-display?id=${id}`,
+                      'guest-display',
+                      'width=1024,height=768,fullscreen=yes'
+                    )
+                  }
+                }}
+              >
+                <QrCode className="w-4 h-4 mr-2" />
+                Open Guest Display
+              </Button>
+
               <Button
                 className="w-full"
                 variant="outline"
                 onClick={() => setShowQR(!showQR)}
               >
                 <QrCode className="w-4 h-4 mr-2" />
-                {showQR ? 'Hide QR Code' : 'Show QR Receipt for Guest'}
+                {showQR ? 'Hide QR Code' : 'Show QR on This Screen'}
               </Button>
 
               {showQR && qrData && (
