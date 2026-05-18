@@ -106,15 +106,12 @@ if (!receiptError && receipt) {
   toast.success('Payment successful!', {
     description: `Transaction completed - ${formatPrice(total)}`,
   })
-
-  // Save to database immediately
-  const method = selectedMethod
-  onSuccess(method)
-  // Do NOT close modal here — cashier closes manually after guest scans QR
 }
 
 const handleClose = () => {
   if (!isProcessing) {
+    const method = selectedMethod
+    if (isComplete) onSuccess(method)
     setAmountReceived('')
     setSelectedMethod('cash')
     setIsComplete(false)
@@ -123,7 +120,7 @@ const handleClose = () => {
     setTransRef('')
     onOpenChange(false)
   }
-}  
+}
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -217,10 +214,15 @@ const handleClose = () => {
                     <Label htmlFor="amount">Amount Received</Label>
                     <Input
                       id="amount"
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       placeholder="Enter amount"
                       value={amountReceived}
-                      onChange={(e) => setAmountReceived(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.]/g, '')
+                        setAmountReceived(val)
+                      }}
                       className="h-12 text-lg"
                     />
                   </div>
