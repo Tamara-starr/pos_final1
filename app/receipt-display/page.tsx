@@ -15,12 +15,14 @@ function GuestDisplayContent() {
     const id = searchParams.get('id')
     if (!id) { setLoading(false); return }
 
-    supabase
+   supabase
       .from('receipts')
       .select('receipt_id, ref, total, pay_method')
       .eq('receipt_id', id)
       .single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        console.log('Receipt data:', data)
+        console.log('Receipt error:', error)
         if (data) {
           setReceiptUrl(`https://benevolent-praline-d7c090.netlify.app/receipt?id=${data.receipt_id}`)
           setTotal(new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(data.total))
