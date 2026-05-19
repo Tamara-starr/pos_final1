@@ -176,7 +176,7 @@ for improving sales at the resort mart.`
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 4000 }
+            generationConfig: { temperature: 0.7, maxOutputTokens: 10000 }
           })
         }
       )
