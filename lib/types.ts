@@ -15,6 +15,7 @@ export interface Product {
   price: number
   category: string
   stock: number
+  reorderLevel?: number
   image?: string
   barcode?: string
   createdAt: Date

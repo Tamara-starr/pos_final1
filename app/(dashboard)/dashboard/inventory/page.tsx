@@ -43,24 +43,26 @@ export default function InventoryPage() {
   // Load products and join with categories
   async function loadProducts() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('products')
-      .select('prod_id, name, price, stock_qty, barcode, reorder_lvl, category_id, categories(name)')
-      .order('name')
+       
+  const { data, error } = await supabase
+  .from('products')
+  .select('prod_id, name, price, stock_qty, barcode, reorder_lvl, category_id, categories(name)')
+  .order('name')
 
     if (error) { toast.error('Failed to load products'); setLoading(false); return }
-
-    const mapped: Product[] = (data || []).map((row: any) => ({
-      id: String(row.prod_id),
-      name: row.name,
-      description: '',
-      price: row.price,
-      category: row.categories?.name ?? 'Other',
-      stock: row.stock_qty,
-      barcode: row.barcode ?? undefined,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }))
+    console.log('First product row:', data?.[0])
+          const mapped: Product[] = (data || []).map((row: any) => ({
+  id: String(row.prod_id),
+  name: row.name,
+  description: '',
+  price: row.price,
+  category: row.categories?.name ?? 'Other',
+  stock: row.stock_qty,
+  reorderLevel: row.reorder_lvl ?? 10,
+  barcode: row.barcode ?? undefined,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}))
 
     setProducts(mapped)
     setLoading(false)
@@ -84,8 +86,7 @@ export default function InventoryPage() {
   const stats = useMemo(() => ({
     totalProducts: products.length,
     totalValue: products.reduce((sum, p) => sum + p.price * p.stock, 0),
-    lowStockCount: products.filter((p) => p.stock < 20 && p.stock > 0).length,
-    outOfStockCount: products.filter((p) => p.stock === 0).length,
+    lowStockCount: products.filter((p) => p.stock <= (p.reorderLevel ?? 10) && p.stock > 0).length,    outOfStockCount: products.filter((p) => p.stock === 0).length,
   }), [products])
 
   const formatPrice = (price: number) =>
@@ -101,11 +102,10 @@ export default function InventoryPage() {
   const generateAIStockAlert = async () => {
     setAiLoading(true)
     setAiAlert('')
-
-    const lowItems = products
-      .filter(p => p.stock < 20)
-      .map(p => `${p.name}: ${p.stock} units remaining`)
-      .join(', ')
+  const lowItems = products
+  .filter(p => p.stock <= (p.reorderLevel ?? 10))
+  .map(p => `${p.name}: ${p.stock} units remaining (reorder level: ${p.reorderLevel ?? 10})`)
+  .join(', ')
 
     if (!lowItems) {
       setAiAlert('All products are well-stocked. No reorder action needed at this time.')
