@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Empty } from '@/components/ui/empty'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,11 +46,11 @@ export function ProductTable({ products, onEdit, onDelete }: ProductTableProps) 
     }).format(price)
   }
 
-  const getStockBadge = (stock: number) => {
+  const getStockBadge = (stock: number, reorderLevel: number = 10) => {
     if (stock === 0) {
       return <Badge variant="destructive">Out of Stock</Badge>
     }
-    if (stock < 20) {
+    if (stock <= reorderLevel) {
       return <Badge className="bg-accent text-accent-foreground">Low Stock</Badge>
     }
     return <Badge variant="secondary">{stock} in stock</Badge>
@@ -64,15 +63,13 @@ export function ProductTable({ products, onEdit, onDelete }: ProductTableProps) 
     })
   }
 
-  if (products.length === 0) {
-    return (
-      <Empty
-        icon={Package}
-        title="No products found"
-        description="Try adjusting your search or add a new product"
-      />
+ return (
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+        <Package className="w-12 h-12 opacity-30" />
+        <p className="font-medium">No products found</p>
+        <p className="text-sm">Try adjusting your search or add a new product</p>
+      </div>
     )
-  }
 
   return (
     <div className="rounded-lg border bg-card">
@@ -110,7 +107,7 @@ export function ProductTable({ products, onEdit, onDelete }: ProductTableProps) 
                 {formatPrice(product.price)}
               </TableCell>
               <TableCell className="hidden md:table-cell">
-                {getStockBadge(product.stock)}
+                {getStockBadge(product.stock, product.reorderLevel)}
               </TableCell>
               <TableCell className="hidden lg:table-cell">
                 <code className="text-xs bg-muted px-2 py-1 rounded">

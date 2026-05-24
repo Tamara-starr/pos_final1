@@ -63,8 +63,9 @@ export default function InventoryPage() {
   createdAt: new Date(),
   updatedAt: new Date(),
 }))
-
+    
     setProducts(mapped)
+    console.log('All products:', JSON.stringify(mapped.map(p => ({ name: p.name, stock: p.stock, reorderLevel: p.reorderLevel })), null, 2))
     setLoading(false)
   }
 
