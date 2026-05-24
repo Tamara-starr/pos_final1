@@ -63,13 +63,15 @@ export function ProductTable({ products, onEdit, onDelete }: ProductTableProps) 
     })
   }
 
- return (
+  if (products.length === 0) {
+    return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
         <Package className="w-12 h-12 opacity-30" />
         <p className="font-medium">No products found</p>
         <p className="text-sm">Try adjusting your search or add a new product</p>
       </div>
     )
+  }
 
   return (
     <div className="rounded-lg border bg-card">
@@ -141,7 +143,7 @@ export function ProductTable({ products, onEdit, onDelete }: ProductTableProps) 
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Product</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete &ldquo;{product.name}&rdquo;? 
+                            Are you sure you want to delete &ldquo;{product.name}&rdquo;?
                             This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
