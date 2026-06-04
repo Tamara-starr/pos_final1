@@ -119,15 +119,9 @@ export default function ShiftReconciliation() {
         const shift_start = manualTimes?.start || rows[0]?.created_at || null
         const shift_end = manualTimes?.end || rows[rows.length - 1]?.created_at || null
 
-        const actual = actualCashInputs[c.user_id] !== undefined
-          ? Number(actualCashInputs[c.user_id])
-          : null
-        const discrepancy = actual !== null ? actual - cash : null
-
-        let status: ShiftSummary['status'] = 'open'
-        if (actual !== null) {
-          status = Math.abs(discrepancy ?? 0) < 1 ? 'reconciled' : 'discrepancy'
-        }
+        const actual = null
+        const discrepancy = null
+        const status: ShiftSummary['status'] = 'open'
 
         return {
           cashier_id: c.user_id,
@@ -149,7 +143,7 @@ export default function ShiftReconciliation() {
 
     setShifts(summaries)
     setLoading(false)
-  }, [cashiers, selectedDate, actualCashInputs, manualShiftTimes])
+  }, [cashiers, selectedDate, manualShiftTimes])
 
   useEffect(() => {
     loadShifts()
@@ -157,10 +151,14 @@ export default function ShiftReconciliation() {
 
   // Save reconciliation record
   const handleReconcile = async (shift: ShiftSummary) => {
-    if (shift.actual_cash === null) {
+    const inputVal = actualCashInputs[shift.cashier_id]
+    if (!inputVal || inputVal === '') {
       toast.error('Enter the actual cash amount first.')
       return
     }
+    const actualCash = Number(inputVal)
+    const discrepancy = actualCash - shift.expected_cash
+
     setSavingId(shift.cashier_id)
 
     const record = {
@@ -172,8 +170,8 @@ export default function ShiftReconciliation() {
       total_transactions: shift.total_transactions,
       total_revenue: shift.total_revenue,
       expected_cash: shift.expected_cash,
-      actual_cash: shift.actual_cash,
-      discrepancy: shift.discrepancy,
+      actual_cash: actualCash,
+      discrepancy: discrepancy,
       reconciled_at: new Date().toISOString(),
     }
 
@@ -356,21 +354,25 @@ export default function ShiftReconciliation() {
               </div>
 
               {/* Live discrepancy indicator */}
-              {shift.discrepancy !== null && (
-                <div className={`px-3 py-2 rounded-lg text-sm font-semibold border ${
-                  Math.abs(shift.discrepancy) < 1
-                    ? 'bg-green-50 text-green-700 border-green-200'
-                    : shift.discrepancy > 0
-                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                    : 'bg-red-50 text-red-700 border-red-200'
-                }`}>
-                  {Math.abs(shift.discrepancy) < 1
-                    ? '✓ Balanced'
-                    : shift.discrepancy > 0
-                    ? `+${fmt(shift.discrepancy)} over`
-                    : `${fmt(Math.abs(shift.discrepancy))} short`}
-                </div>
-              )}
+              {actualCashInputs[shift.cashier_id] !== undefined && actualCashInputs[shift.cashier_id] !== '' && (() => {
+                const actual = Number(actualCashInputs[shift.cashier_id])
+                const discrepancy = actual - shift.expected_cash
+                return (
+                  <div className={`px-3 py-2 rounded-lg text-sm font-semibold border ${
+                    Math.abs(discrepancy) < 1
+                      ? 'bg-green-50 text-green-700 border-green-200'
+                      : discrepancy > 0
+                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                      : 'bg-red-50 text-red-700 border-red-200'
+                  }`}>
+                    {Math.abs(discrepancy) < 1
+                      ? '✓ Balanced'
+                      : discrepancy > 0
+                      ? `+${fmt(discrepancy)} over`
+                      : `${fmt(Math.abs(discrepancy))} short`}
+                  </div>
+                )
+              })()}
 
               <Button
                 onClick={() => handleReconcile(shift)}

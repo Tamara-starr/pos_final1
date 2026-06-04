@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         id: String(data.user_id),
         email: data.username,
         name: `${data.first_name} ${data.last_name}`,
-        role: String(data.role).toLowerCase().trim() as 'admin' | 'manager' | 'cashier',
+        role: String(data.role).toLowerCase().trim() as 'admin' | 'cashier',
       }
 
       setUser(loggedInUser)
