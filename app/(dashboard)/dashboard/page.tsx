@@ -35,9 +35,10 @@ export default function POSDashboard() {
   async function loadProducts() {
     setLoading(true)
     const { data, error } = await supabase
-      .from('products')
-      .select('prod_id, name, price, stock_qty, barcode, category_id, categories(name)')
-      .order('name')
+  .from('products')
+  .select('prod_id, name, price, stock_qty, barcode, reorder_lvl, category_id, categories(name)')
+  .eq('is_active', true)
+  .order('name')
 
     if (error) {
       console.error('Error loading products:', error.message)

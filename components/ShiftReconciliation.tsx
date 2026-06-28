@@ -59,6 +59,7 @@ export default function ShiftReconciliation() {
   const [loading, setLoading] = useState(false)
   const [expandedCashier, setExpandedCashier] = useState<number | null>(null)
   const [actualCashInputs, setActualCashInputs] = useState<Record<number, string>>({})
+  const [savedReconciliations, setSavedReconciliations] = useState<Record<number, any>>({})
   const [manualShiftOpen, setManualShiftOpen] = useState<Record<number, boolean>>({})
   const [manualShiftTimes, setManualShiftTimes] = useState<Record<number, { start: string; end: string }>>({})
   const [savingId, setSavingId] = useState<number | null>(null)
@@ -81,6 +82,17 @@ export default function ShiftReconciliation() {
 
     const dayStart = `${selectedDate}T00:00:00`
     const dayEnd = `${selectedDate}T23:59:59`
+
+    const { data: reconData } = await supabase
+      .from('reconciliations')
+      .select('*')
+      .eq('shift_date', selectedDate)
+
+    const reconMap: Record<number, any> = {}
+    ;(reconData ?? []).forEach((r: any) => {
+      reconMap[r.cashier_id] = r
+    })
+    setSavedReconciliations(reconMap)
 
     const { data: txns } = await supabase
       .from('transactions')
@@ -227,8 +239,8 @@ export default function ShiftReconciliation() {
           {[
             { label: 'Cashiers on shift', value: shifts.length, color: 'text-blue-600' },
             { label: 'Total revenue', value: fmt(shifts.reduce((s, sh) => s + sh.total_revenue, 0)), color: 'text-green-600' },
-            { label: 'Reconciled', value: shifts.filter((s) => s.status === 'reconciled').length, color: 'text-green-600' },
-            { label: 'Discrepancies', value: shifts.filter((s) => s.status === 'discrepancy').length, color: 'text-red-600' },
+           { label: 'Reconciled', value: Object.values(savedReconciliations).filter((r: any) => Math.abs(r.discrepancy ?? 0) < 1).length, color: 'text-green-600' },
+            { label: 'Discrepancies', value: Object.values(savedReconciliations).filter((r: any) => Math.abs(r.discrepancy ?? 0) >= 1).length, color: 'text-red-600' },
           ].map((card) => (
             <Card key={card.label}>
               <CardContent className="pt-4">
@@ -274,7 +286,15 @@ export default function ShiftReconciliation() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <StatusBadge status={shift.status} />
+                <StatusBadge status={
+                  savedReconciliations[shift.cashier_id]
+                    ? Math.abs(savedReconciliations[shift.cashier_id].discrepancy ?? 0) < 1
+                      ? 'reconciled'
+                      : 'discrepancy'
+                    : actualCashInputs[shift.cashier_id]
+                    ? 'open'
+                    : 'open'
+                } />
                 <Button
                   variant="ghost"
                   size="sm"

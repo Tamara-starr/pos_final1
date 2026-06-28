@@ -47,6 +47,7 @@ export default function InventoryPage() {
   const { data, error } = await supabase
   .from('products')
   .select('prod_id, name, price, stock_qty, barcode, reorder_lvl, category_id, categories(name)')
+  .eq('is_active', true)
   .order('name')
 
     if (error) { toast.error('Failed to load products'); setLoading(false); return }
@@ -181,11 +182,14 @@ Rank them from most critical to least critical.`
   }
 
   const handleDeleteProduct = async (id: string) => {
-    const { error } = await supabase.from('products').delete().eq('prod_id', Number(id))
-    if (error) { toast.error('Failed to remove product'); return }
-    toast.success('Product removed')
-    loadProducts()
-  }
+  const { error } = await supabase
+    .from('products')
+    .update({ is_active: false })
+    .eq('prod_id', Number(id))
+  if (error) { toast.error('Failed to remove product'); return }
+  toast.success('Product deactivated successfully')
+  loadProducts()
+}
 
   return (
     <div className="space-y-6">
